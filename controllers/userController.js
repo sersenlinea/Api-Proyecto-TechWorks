@@ -4,25 +4,43 @@ const db = require('../models');
 
 const userController = {
     userRegister: async (req, res) => {
-        const {
-          nombre, apellido, email, imagen, rol, password
-        } = req.body;
-    
-        try {
-          const usuario = await db.users.create({
-            nombre, apellido, email, imagen, rol, password
-          });
-    
-          res.status(200).json({
-            msg: 'usuario created successfully!',
-            usuario,
-          });
-        } catch (error) {
-          return res.status(400).json(
-            error.errors.map((err) => `msg: ${err.message}`)[0],
-          );
-        }
-      },
+        const errors = validationResult(req);
+       
+        db.users.findOne({
+            where:{
+                email:req.body.email,
+            },
+        }).then(data=>{
+            if(data){
+                res.status(409).json({ msg: 'User already exists' });
+            }else{
+                const {
+                    nombre, apellido, email, imagen, rol, password
+                  } = req.body;
+              
+                  try {
+                    db.users.create({
+                      nombre, apellido, email, imagen, rol, password:bcrypt.hashSync(password,10)
+                    }).then(async (user)=>{
+                        res.status(200).json({
+                            msg: 'usuario created successfully!',
+                            user,
+                        })
+                    }).catch((err) => res.status(500).json({
+                        msg: `Please contact the administrator, Error: ${err.message}`,
+                    }));
+              
+                    
+                  } catch (error) {
+                    return res.status(400).json(
+                      error.errors.map((err) => `msg: ${err.message}`)[0],
+                    );
+                  }
+              
+            }
+        })
+        
+        },
     userList: (req, res) => {
         db.users.findAll()
             .then((result) => {
@@ -40,21 +58,29 @@ const userController = {
     userEdit: (req, res) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
+            return res.status(400).json({
+                errors:errors.array(),
+            })
+        }
+        if (!errors.isEmpty()) {
             res.status(400).json({
                 errors: errors.array(),
             });
         } else {
             const {
-                firstName, lastName,
+                nombre, apellido, email, imagen, rol, password
             } = req.body;
 
-            const user = db.usersfindByPk(req.params.id);
+            const user = db.users.findByPk(req.params.id);
             if (user !== '') {
-                db.usersupdate(
+                db.users.update(
                     {
-                        firstName,
-                        lastName,
-                        photo: req.user.image,
+                        nombre, 
+                        apellido, 
+                        email, 
+                        imagen, 
+                        rol, 
+                        password:bcrypt.hashSync(password,10)
                     },
                     {
                         where: {
@@ -81,52 +107,11 @@ const userController = {
             }
         }
     },
-    signup: async (req, res) => {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                errors: errors.array(),
-            });
-        }
-        db.usersfindOne({
-            where: {
-                email: req.body.email,
-            },
-        }).then((possibleUser) => {
-            if (possibleUser) {
-                res.status(409).json({ msg: 'User already exists' });
-            } else {
-                db.userscreate({
-                    firstName: req.body.firstName,
-                    lastName: req.body.lastName,
-                    email: req.body.email,
-                    password: bcrypt.hashSync(req.body.password, 10),
-                }).then(async (user) => {
-                    const token = await createToken(user.id);
-                    res.header('Authorization', `Bearer ${token}`);
-                    await sendMail(user.email, template.subject, template.html).then(() => {
-                        const response = {
-                            message: 'Account created successfully! Check your email spam box!',
-                            data: {
-                                firstName: user.firstName,
-                                lastName: user.lastName,
-                                email: user.email,
-                            },
-                        };
-                        return res.json(response);
-                    }).catch((err) => res.status(500).json({
-                        msg: `Please contact the administrator, Error: ${err.message}`,
-                    }));
-                })
-                    .catch((err) => res.status(500).json(err));
-            }
-        })
-            .catch((err) => res.status(500).json(err));
-    },
+
     userDelete: async (req, res) => {
         const userId = Number(req.params.id);
         try {
-            const user = await db.usersfindOne({
+            const user = await db.users.findOne({
                 where: {
                     id: userId,
                 },
@@ -137,7 +122,7 @@ const userController = {
                 await user.destroy();
 
                 res.json({
-                    msg: 'The user has been soft-deleted',
+                    msg: `The user with id: ${userId} has deleted`,
                 });
             } else {
                 res.status(404).json({

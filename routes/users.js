@@ -1,9 +1,8 @@
 var express = require('express');
 var router = express.Router();
-const {getData,login,signup,userList,userEdit,userDelete,userRegister} = require('../controllers/userController')
+const {getData,login,userList,userEdit,userDelete,userRegister} = require('../controllers/userController')
 
-// User register
-router.post('/auth/signup', signup);
+
 // User login
 router.post('/auth/login', login);
 
