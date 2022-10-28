@@ -205,6 +205,7 @@ const userController = {
             }
         } catch (error) {
             return res.status(500).json({
+                
                 msg: 'Please contact the administrator',
             });
         }
